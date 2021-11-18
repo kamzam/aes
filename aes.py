@@ -1,17 +1,11 @@
 #!/usr/bin/env python3
+#references: https://github.com/boppreh/aes
 """
 This is an exercise in secure symmetric-key encryption, implemented in pure
 Python (no external libraries needed).
 
-Original AES-128 implementation by Bo Zhu (http://about.bozhu.me) at 
-https://github.com/bozhu/AES-Python . PKCS#7 padding, CBC mode, PKBDF2, HMAC,
-byte array and string support added by me at https://github.com/boppreh/aes. 
-Other block modes contributed by @righthandabacus.
-
-
-Although this is an exercise, the `encrypt` and `decrypt` functions should
-provide reasonable security to encrypted messages.
 """
+#https://en.wikipedia.org/wiki/Rijndael_S-box
 
 
 s_box = (
@@ -82,12 +76,13 @@ def add_round_key(s, k):
             s[i][j] ^= k[i][j]
 
 
-# learned from http://cs.ucsb.edu/~koc/cs178/projects/JT/aes.c
+# Reference:  http://cs.ucsb.edu/~koc/cs178/projects/JT/aes.c
 xtime = lambda a: (((a << 1) ^ 0x1B) & 0xFF) if (a & 0x80) else (a << 1)
 
 
+
+# Column SHuffling 
 def mix_single_column(a):
-    # see Sec 4.1.2 in The Design of Rijndael
     t = a[0] ^ a[1] ^ a[2] ^ a[3]
     u = a[0]
     a[0] ^= t ^ xtime(a[0] ^ a[1])
@@ -102,7 +97,6 @@ def mix_columns(s):
 
 
 def inv_mix_columns(s):
-    # see Sec 4.1.3 in The Design of Rijndael
     for i in range(4):
         u = xtime(xtime(s[i][0] ^ s[i][2]))
         v = xtime(xtime(s[i][1] ^ s[i][3]))
@@ -173,10 +167,10 @@ def split_blocks(message, block_size=16, require_padding=True):
 
 class AES:
     """
-    Class for AES-128 encryption with CBC mode and PKCS#7.
+    Class for AES-128 encryption 
 
     This is a raw implementation of AES, without key stretching or IV
-    management. Unless you need that, please use `encrypt` and `decrypt`.
+    management. Please use `encrypt` and `decrypt` for using the encryption on your given string.
     """
     rounds_by_key_size = {16: 10, 24: 12, 32: 14}
     def __init__(self, master_key):
@@ -485,10 +479,7 @@ def encrypt(key, plaintext, workload=100000):
 
 def decrypt(key, ciphertext, workload=100000):
     """
-    Decrypts `ciphertext` with `key` using AES-128, an HMAC to verify integrity,
-    and PBKDF2 to stretch the given key.
-
-    The exact algorithm is specified in the module docstring.
+    Decrypts `ciphertext` with `key` using AES-128.
     """
 
     assert len(ciphertext) % 16 == 0, "Ciphertext must be made of full 16-byte blocks."
@@ -509,40 +500,3 @@ def decrypt(key, ciphertext, workload=100000):
     assert compare_digest(hmac, expected_hmac), 'Ciphertext corrupted or tampered.'
 
     return AES(key).decrypt_cbc(ciphertext, iv)
-
-
-def benchmark():
-    key = b'P' * 16
-    message = b'M' * 16
-    aes = AES(key)
-    for i in range(30000):
-        aes.encrypt_block(message)
-
-__all__ = [encrypt, decrypt, AES]
-
-if __name__ == '__main__':
-    import sys
-    write = lambda b: sys.stdout.buffer.write(b)
-    read = lambda: sys.stdin.buffer.read()
-
-    if len(sys.argv) < 2:
-        print('Usage: ./aes.py encrypt "key" "message"')
-        print('Running tests...')
-        from tests import *
-        run()
-    elif len(sys.argv) == 2 and sys.argv[1] == 'benchmark':
-        benchmark()
-        exit()
-    elif len(sys.argv) == 3:
-        text = read()
-    elif len(sys.argv) > 3:
-        text = ' '.join(sys.argv[2:])
-
-    if 'encrypt'.startswith(sys.argv[1]):
-        write(encrypt(sys.argv[2], text))
-    elif 'decrypt'.startswith(sys.argv[1]):
-        write(decrypt(sys.argv[2], text))
-    else:
-        print('Expected command "encrypt" or "decrypt" in first argument.')
-
-    # encrypt('my secret key', b'0' * 1000000) # 1 MB encrypted in 20 seconds.
